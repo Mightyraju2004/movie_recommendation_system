@@ -2,10 +2,13 @@ import streamlit as st
 import pickle
 import pandas as pd
 import requests
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import gzip
 
 
 def fetch_poster(movie_id):
-    url = "https://api.themoviedb.org/3/movie/{}?api_key=abf46a492ce27525fe3f525e1add549b&language=en-US".format(
+    url = "https://api.themoviedb.org/3/movie/{}?api_key=e37de732cc33e504bbf33390c5cba878&language=en-US".format(
         movie_id)
 
     try:
@@ -37,9 +40,34 @@ def recommend(movie):
 
     return recommended_movie_names,recommended_movie_posters
 
-movies=pickle.load(open('movie_list.pkl','rb'))
-movies_list=movies['title'].values
-similarity=pickle.load(open('similarity.pkl','rb'))
+#movies=pickle.load(open('movie_list.pkl','rb'))
+#movies_list=movies['title'].values
+#similarity=pickle.load(open('similarity.pkl','rb'))
+## Similarity matrix ko live calculate karein (similarity.pkl file ki zaroorat nahi hai)
+#we do this because similarity.pkl file>100mb so it cant push on github and we deploy this projrct on streamlit cloud
+#which uses github code for deploy aur github pe similarity.pkl to upload hi nhi ho skta
+#cv = CountVectorizer(max_features=5000, stop_words='english')
+#vector = cv.fit_transform(movies['tags']).toarray()
+#similarity = cosine_similarity(vector)
+#with bz2.BZ2File("similarity_compressed.pkl", "r") as f:
+  #  similarity = pickle.load(f)
+# ---- Data Loading (Optimized for Lightning Fast Speed) ----
+
+# 1. Movie list metadata file
+movies = pickle.load(open("movie_list.pkl", "rb"))
+movies_list = movies["title"].values
+
+
+# 2. Caching Feature: Isse file memory me save ho jayegi, baar-baar load hoke speed slow nahi karegi
+@st.cache_resource
+def load_similarity_matrix():
+    with gzip.open("similarity_fast.gzip", "rb") as f:
+        return pickle.load(f)
+
+
+similarity = load_similarity_matrix()
+
+# ---- Streamlit UI Frontend Layout ----
 st.title('Movie Recommender System')
 
 selected_movie_name=st.selectbox('How would you like to contacted?',movies_list)
